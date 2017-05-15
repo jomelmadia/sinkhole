@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # Raw socketry in Python, see if it's quicker than Scapy!
 
-import sys, getopt, time, hashlib, struct
+import sys, getopt, time, hashlib, struct, random
 import socket, fcntl
 
 SIOCGIFHWADDR  = 0x8927
@@ -20,11 +20,7 @@ def checksum(bits):
 
 class BasePacket:
   def __str__(self):
-    global verb
-    if verb > 0:
-      return self.format()
-    else:
-      return ''
+    return self.format()
 
 class Ether(BasePacket):
   def __init__(self, pkt = None):
@@ -252,6 +248,98 @@ class ICMP(BasePacket):
       self.typ, self.cod, self.chk, self.roh, self.dat.encode('hex')
     )
 
+class TCP(BasePacket):
+  def __init__(self, pkt = None):
+    self.src = 1234
+    self.dst = 80
+    self.seq = 0
+    self.ack = 0
+    self.dat = 5
+    self.res = 0
+    self.flg = 0
+    self.win = 0
+    self.chk = 0
+    self.urg = 0
+    self.opt = ''
+    if pkt:
+      self.decode(pkt)
+
+  def decode(self, pkt):
+    if len(pkt) >= 20:
+      bits = struct.unpack("!HHIIBBHHH", pkt[0:20])
+      self.src = bits[0]
+      self.dst = bits[1]
+      self.seq = bits[2]
+      self.ack = bits[3]
+      self.dat = (bits[4] >> 4)
+      self.res = (bits[4] >> 1)
+      self.flg = bits[5]
+      self.win = bits[6]
+      self.chk = bits[7]
+      self.urg = bits[8]
+      l = self.dat * 4
+      if l > 20 and l <= len(pkt):
+        self.opt = pkt[20:l]
+        return pkt[l:]
+      return pkt[20:]
+    return pkt
+
+  def encode(self):
+    return struct.pack("!HHIIBBHHH",
+      self.src,
+      self.dst,
+      self.seq,
+      self.ack,
+      (self.dat << 4),	# NB: we do not encode reserved bits
+      self.flg,
+      self.win,
+      self.chk,
+      self.urg
+    ) + self.opt
+
+  def reply(self, flag = None, opts = None):
+    rep = TCP()
+    rep.src = self.dst
+    rep.dst = self.src
+    rep.seq = random.randint(0, 0xffffffff)
+    rep.ack = self.seq + 1
+    rep.res = 0
+    rep.flg = flag if flag else 0
+    rep.win = self.win
+    rep.chk = 0
+    rep.urg = 0
+    # Options, padded to 32-bit multiple
+    if opts:
+      rep.opt = opts.ljust(((len(opts)+3)/4)*4, '\0')
+      rep.dat = 5 + len(rep.opt)/4
+    else:
+      rep.opt = ''
+      rep.dat = 5
+    return rep
+
+  def checksum(self, ip):
+    # Fake header for checksum calc (why TCP, just WHY!?)
+    tmp = list(struct.unpack("!HHHHHH", struct.pack("!4s4sBBH", ip.src, ip.dst, 0, 6, self.dat*4)))
+    # actual TCP header..
+    tmp = tmp + list(struct.unpack("!HHHHHHHHHH", self.encode()[0:20]))
+    # Option data..
+    for b in range(0, self.dat-5):
+      w = struct.unpack("!HH", self.opt[b*4:b*4+4])
+      tmp = tmp + [w[0],w[1]]
+    self.chk = checksum(tmp)
+
+  def format(self):
+    return "TCP(src={0},dst={1},seq={2},ack={3},dat={4},flg=0x{5:02X},win={6},chk={7},urg={8})".format(
+      self.src,
+      self.dst,
+      self.seq,
+      self.ack,
+      self.dat,
+      self.flg,
+      self.win,
+      self.chk,
+      self.urg
+    )
 
 ## main program ##
 
@@ -267,6 +355,9 @@ def bail():
   print 'usage: raw.py [-h] [-v|q] [-i <if>] [-a <addr>]'
   sys.exit(0)
 
+def msg(*txts):
+  if verb > 0:
+    sys.stdout.write(" ".join(map(lambda t: t.__str__(), txts)))
 
 def main(argv):
   global sink_if
@@ -304,23 +395,46 @@ def main(argv):
       print sink_cnt,": ",
     eth = Ether()
     pkt = eth.decode(pkt)
-    print eth,
+    msg ( eth )
     if 0x800 == eth.pro:
       ip = IP()
       pkt = ip.decode(pkt)
-      print ip,
+      msg ( ip )
       if 1 == ip.pro:
         icmp = ICMP()
         pkt = icmp.decode(pkt)
-        print icmp,
+        msg ( icmp )
         if 8 == icmp.typ and cmp(bin_ip, ip.dst) == 0:
           rcp = icmp.reply().encode()
           rep = eth.reply(bin_hw).encode() + ip.reply(bin_ip, len(rcp)).encode() + rcp
           rds = 'ICMP'
+      elif 6 == ip.pro:
+        tcp = TCP()
+        pkt = tcp.decode(pkt)
+        msg ( tcp )
+        if cmp(bin_ip, ip.dst) == 0:
+          synack = tcp.flg & 18
+          if 2 == synack:
+            # SYN only, reply with SYN+ACK
+            tcr = tcp.reply(18, struct.pack("!BBHB", 2,4,1460,0))
+            ipr = ip.reply(bin_ip, len(tcr.encode()))
+            tcr.checksum(ipr)
+            rep = eth.reply(bin_hw).encode() + ipr.encode() + tcr.encode()
+            rds = 'TCP(SYNACK)'
+          elif 16 == synack and ip.len <= ((ip.ihl+tcp.dat)*4):
+            # ACK only, without data, ignore
+            rds = 'TCP(ign)'
+          else:
+            # Anything else, reset
+            tcr = tcp.reply(4)
+            ipr = ip.reply(bin_ip, len(tcr.encode()))
+            tcr.checksum(ipr)
+            rep = eth.reply(bin_hw).encode() + ipr.encode() + tcr.encode()
+            rds = 'TCP(RST)'
     elif 0x806 == eth.pro:
       arp = ARP()
       pkt = arp.decode(pkt)
-      print arp,
+      msg ( arp )
       if cmp(bin_ip, arp.tpa) == 0:
         rep = eth.reply(bin_hw).encode() + arp.reply(bin_hw, bin_ip).encode()
         rds = 'ARP'
@@ -331,7 +445,7 @@ def main(argv):
       spinpos = (spinpos+1) % len(spinner)
     sys.stdout.flush()
     if rep:
-      print 'Sending reply', rds
+      msg ( 'Sending reply', rds, "\n" )
       rep = rep.ljust(60, '\0')
       raw.send(rep);
 
