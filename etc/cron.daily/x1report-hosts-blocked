@@ -1,0 +1,9 @@
+#! /bin/sh
+# Report on blocked hosts in syslog.1 (daily updates)
+# NB: script named to ensure it runs /after/ logrotate, hence searching syslog.1 picks up the whole previous day
+
+[ -r /etc/default/sinkhole ] && . /etc/default/sinkhole
+echo "Not reported: $SINKHOLE_SUPPRESS"
+echo ""
+fgrep hosts.blocked /var/log/syslog.1 |fgrep $SINKHOLE_IP |sed -e 's/^.*hosts\.blocked \([^ ]*\) is.*$/\1/' |egrep -v "$SINKHOLE_SUPPRESS" |sort |uniq -c |sort -nr
+

@@ -1,0 +1,20 @@
+#! /bin/sh
+# Get a well managed block list for the DNS sinkhole
+# NB: script named to run /after/ reporting on previous day (in case that script needs list content to work)
+
+SINKHOLE_CONF=/etc/default/sinkhole
+SINKHOLE_EXCLUDE=
+SINKHOLE_IP=0.0.0.0
+SINKHOLE_IP6=::0
+
+[ -r $SINKHOLE_CONF ] && . $SINKHOLE_CONF
+
+# Fetch list, apply exclusions from config, modify sinkhole IP..
+wget -q https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts -O - |
+	egrep -v "$SINKHOLE_EXCLUDE" >/tmp/sink.$$
+cat /tmp/sink.$$| sed -e "s/^0\.0\.0\.0/$SINKHOLE_IP/" > /var/tmp/hosts.blocked
+cat /tmp/sink.$$| sed -e "s/^0\.0\.0\.0/$SINKHOLE_IP6/" >> /var/tmp/hosts.blocked
+rm -f /tmp/sink.$$
+
+# Restart dnsmasq to pick it up
+systemctl -s SIGHUP kill dnsmasq

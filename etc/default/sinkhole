@@ -1,0 +1,9 @@
+# Default config values for DNS sinkhole (see /etc/cron.daily/x2update-hosts.blocked.sh, /etc/dnsmasq.conf)
+SINKHOLE_EXCLUDE="i1.services.social.microsoft.com|google-analytics.com$|keefox.org$|projectwonderful.com$|redditmedia.com$"
+SINKHOLE_IP=127.0.0.1
+SINKHOLE_IP6=::1
+#SINKHOLE_IP=192.168.0.253
+#SINKHOLE_IP=0.0.0.0
+
+# This list of domain patterns are not reported on to reduce noise in daily reports
+SINKHOLE_SUPPRESS="youtube.com$|partner.googleadservices.com$|^www.google.*.com$|amazon-adsystem.com$|yahoo.com$|scorecardresearch.com$|googlesyndication.com$|radar.cedexis.com$|stats.wp.com$|pixel.wp.com$|disqus.com$|amazon.com$|lijit.com$|contextweb.com$|mopub.com$|komoona.com$|chartbeat.net$|chartbeat.com$|adnxs.com$|doubleclick.net$|microsoft.com$|quantserve.com$|addthis.com$|moatads.com$|technoratimedia.com$|districtm.ca$|newrelic.com$|openx.net$|fidelity-media.com$|adblockanalytics.com$|1rx.io$|^stats.wordpress.com$|shareaholic.com$|siftscience.com$|ads.pubmatic.com$|adtech.advertising.com$|madadsmedia.com$|static.hotjar.com$|tapad.com$|crwdcntrl.net$|researchnow.com$|imrworldwide.com$|bbc.co.uk$|bbcworldwide.com$|rubiconproject.com$|igodigital.com$|shraethrough.com$|rlcdn.com$|demdex.net$|taboola.com$|pagefair.com$|pagefair.net$|veruta.com$|bluekai.com$|outbrain.com$|revcontent.com$|imdb.com$|qualtrics.com$|revsci.net$|sharethis.com$|casalemedia.com$|viglink.com$|adtechus.com$|marketo.net$|sekindo.com$|sharethrough.com$"
