@@ -1,5 +1,6 @@
 # sinkhole
-Scripts for filtering and reporting on a local host file based DNS sinkhole
+Scripts for filtering and reporting on a local host file based DNS sinkhole, two crude sinkhole implementations in python inspired by
+[IPTrap](https://github.com/jedisct1/iptrap)
 
 ## Credits
 Firstly to [Steven Black](https://github.com/StevenBlack) for the curated host file, that's the hard bit!
@@ -14,5 +15,9 @@ Script 2 (x2-update-hosts-blocked), pulls the curated list from Steven, applies 
 drops the results in /var/tmp and restarts dnsmasq to update blocked hosts.
 
 The config (etc/default/sinkhole) contains the host exclusion list, chosen IP addresses to respond with and the report filter list.
+
+pysink.py: Scapy based sinkhole script (unusably slow)
+
+raw.py: badly named, raw socket based sinkhole (usably fast)
 
 That's it!
