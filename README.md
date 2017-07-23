@@ -20,4 +20,7 @@ pysink.py: Scapy based sinkhole script (unusably slow)
 
 raw.py: badly named, raw socket based sinkhole (usably fast)
 
+## Any more info?
+I blogged about it a bit [https://ashbysoft.com/wiki/Blackhole%20DNS](https://ashbysoft.com/wiki/Blackhole%20DNS)
+
 That's it!
