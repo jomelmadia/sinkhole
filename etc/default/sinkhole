@@ -1,5 +1,5 @@
 # Default config values for DNS sinkhole (see /etc/cron.daily/x2update-hosts.blocked.sh, /etc/dnsmasq.conf)
-SINKHOLE_EXCLUDE="www.msftncsi.com|i1.services.social.microsoft.com|google-analytics.com$|keefox.org$|projectwonderful.com$|redditmedia.com$|bit.ly"
+SINKHOLE_EXCLUDE="spclient.wg.spotify.com|redirector.gvt1.com|www.msftncsi.com|i1.services.social.microsoft.com|google-analytics.com$|keefox.org$|projectwonderful.com$|redditmedia.com$|bit.ly"
 SINKHOLE_IP=127.0.0.1
 SINKHOLE_IP6=::1
 #SINKHOLE_IP=192.168.0.253
