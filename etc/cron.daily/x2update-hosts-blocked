@@ -1,6 +1,7 @@
-#! /bin/sh
+#! /bin/bash
 # Get a well managed block list for the DNS sinkhole
 # NB: script named to run /after/ reporting on previous day (in case that script needs list content to work)
+# NBB: script requires BASH to support the use of arrays in the config file
 
 SINKHOLE_CONF=/etc/default/sinkhole
 SINKHOLE_EXCLUDE=
