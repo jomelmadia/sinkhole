@@ -14,6 +14,7 @@ SINKHOLE_LOG=/var/log/dnsmasq.log.1
 # This list of domain patterns are not reported on to reduce noise in daily reports
 # (roughly in noise order, but grouped by company)
 SINKHOLE_SUPPRESS=(
+	telemetry.thunderbird.net$
 	telemetry.mozilla.org$
 	google.com$
 	googleadservices.com$
