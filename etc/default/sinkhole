@@ -17,6 +17,8 @@ SINKHOLE_SUPPRESS=(
 	applovin.com$
 	applvn.com$
 	segment.io$
+	inmobi.com$
+	api2.branch.io$
 	cloud.unity3d.com$
 	split.io$
 	telemetry.thunderbird.net$
