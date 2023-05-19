@@ -1,17 +1,57 @@
-#! /bin/bash
-# Report on blocked hosts in syslog.1 (daily updates)
-# NB: script named to ensure it runs /after/ logrotate, hence searching syslog.1 picks up the whole previous day
-# NBB: script MUST be interpreted through BASH for arrays to work.
+#! /usr/bin/env python3
+"""
+Report on blocked hosts in syslog.1 (daily updates) or wherever the config indicates.
+We maintain a suppression list, pickled into /var/cache/sinkhole, that will suppress reports
+of anything from the previous day, so we only see new things.
 
-SINKHOLE_LOG=/var/log/syslog.1
-SINKHOLE_IP=127.0.0.1
+NB: script named to ensure it runs /after/ logrotate, hence searching syslog.1 picks up the whole previous day
+"""
+import os
+import pickle
 
-[ -r /etc/default/sinkhole ] && . /etc/default/sinkhole
-# construct suppression list (if any)
-SUPPRESS="''"
-if [ ${#SINKHOLE_SUPPRESS[*]} -gt 0 ]; then
-    SUPPRESS=$(IFS='|'; echo "${SINKHOLE_SUPPRESS[*]}")
-fi
-[ -n "$SINKHOLE_VERBOSE" ] && (echo "Not reported: $SUPPRESS"; echo "")
-fgrep hosts.blocked $SINKHOLE_LOG |fgrep $SINKHOLE_IP |sed -e 's/^.*hosts\.blocked \([^ ]*\) is.*$/\1/' |sort |egrep -v "$SUPPRESS" |uniq -c |sort -nr
+SINKHOLE_CONFIG='/etc/default/sinkhole'
+SINKHOLE_LOG='/var/log/syslog.1'
+SINKHOLE_SUPPFILE='suppress.dat'
+SINKHOLE_BLOCKFILE='/var/tmp/hosts.blocked'
 
+if os.access(SINKHOLE_CONFIG, os.R_OK):
+    with open(SINKHOLE_CONFIG, 'r') as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            name, val = line.partition('=')[::2]
+            name = name.strip()
+            if name == 'SINKHOLE_LOG':
+                SINKHOLE_LOG=val.strip()
+            elif name == 'SINKHOLE_SUPPFILE':
+                SINKHOLE_SUPPFILE=val.strip()
+            elif name == 'SINKHOLE_BLOCKFILE':
+                SINKHOLE_BLOCKFILE=val.strip()
+
+print(f"Blocked DNS domains (in {SINKHOLE_BLOCKFILE}) from {SINKHOLE_LOG}, suppressed by {SINKHOLE_SUPPFILE}")
+hits = {}
+if os.access(SINKHOLE_LOG, os.R_OK):
+    with open(SINKHOLE_LOG, 'r') as f:
+        for line in f:
+            hit, chk = line.partition(SINKHOLE_BLOCKFILE)[2].strip().partition(' ')[::2]
+            if len(hit) == 0:
+                continue
+            if not chk.startswith('is'):
+                continue
+            if hit in hits:
+                hits[hit] += 1
+            else:
+                hits[hit] = 1
+
+suppress = {}
+if os.access(SINKHOLE_SUPPFILE, os.R_OK):
+    with open(SINKHOLE_SUPPFILE, 'rb') as f:
+        suppress = pickle.load(f)
+
+for hit in sorted(hits, key=hits.get, reverse=True):
+    if hit in suppress:
+        continue
+    print(f"{hits[hit]} {hit}")
+
+with open(SINKHOLE_SUPPFILE, 'wb') as f:
+    pickle.dump(hits, f)
