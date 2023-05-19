@@ -11,7 +11,7 @@ import pickle
 
 SINKHOLE_CONFIG='/etc/default/sinkhole'
 SINKHOLE_LOG='/var/log/syslog.1'
-SINKHOLE_SUPPFILE='suppress.dat'
+SINKHOLE_SUPPFILE='/var/cache/sinkhole/suppress.dat'
 SINKHOLE_BLOCKFILE='/var/tmp/hosts.blocked'
 
 if os.access(SINKHOLE_CONFIG, os.R_OK):
