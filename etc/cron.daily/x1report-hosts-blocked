@@ -2,7 +2,7 @@
 """
 Report on blocked hosts in syslog.1 (daily updates) or wherever the config indicates.
 We maintain a suppression list, pickled into /var/cache/sinkhole, that will suppress reports
-of anything from the previous day, so we only see new things.
+of anything that continues to turn up within <n> days (default: 5)
 
 NB: script named to ensure it runs /after/ logrotate, hence searching syslog.1 picks up the whole previous day
 """
@@ -12,6 +12,7 @@ import pickle
 SINKHOLE_CONFIG='/etc/default/sinkhole'
 SINKHOLE_LOG='/var/log/syslog.1'
 SINKHOLE_SUPPFILE='/var/cache/sinkhole/suppress.dat'
+SINKHOLE_SUPPDAYS=5
 SINKHOLE_BLOCKFILE='/var/tmp/hosts.blocked'
 
 if os.access(SINKHOLE_CONFIG, os.R_OK):
@@ -25,10 +26,12 @@ if os.access(SINKHOLE_CONFIG, os.R_OK):
                 SINKHOLE_LOG=val.strip()
             elif name == 'SINKHOLE_SUPPFILE':
                 SINKHOLE_SUPPFILE=val.strip()
+            elif name == 'SINKHOLE_SUPPDAYS':
+                SINKHOLE_SUPPDAYS=int(val.strip())
             elif name == 'SINKHOLE_BLOCKFILE':
                 SINKHOLE_BLOCKFILE=val.strip()
 
-print(f"Blocked DNS domains (in {SINKHOLE_BLOCKFILE}) from {SINKHOLE_LOG}, suppressed by {SINKHOLE_SUPPFILE}")
+print(f"Blocked DNS domains (in {SINKHOLE_BLOCKFILE}) from {SINKHOLE_LOG}, suppressed by {SINKHOLE_SUPPFILE} for {SINKHOLE_SUPPDAYS} days")
 hits = {}
 if os.access(SINKHOLE_LOG, os.R_OK):
     with open(SINKHOLE_LOG, 'r') as f:
@@ -48,10 +51,14 @@ if os.access(SINKHOLE_SUPPFILE, os.R_OK):
     with open(SINKHOLE_SUPPFILE, 'rb') as f:
         suppress = pickle.load(f)
 
+# downcount items and filter out expired ones
+suppress = {k:v-1 for k,v in suppress.items() if v > 1}
+
 for hit in sorted(hits, key=hits.get, reverse=True):
-    if hit in suppress:
-        continue
-    print(f"{hits[hit]} {hit}")
+    if not hit in suppress:
+        print(f"{hits[hit]} {hit}")
+    # every hit is suppressed for <n> days
+    suppress[hit] = SINKHOLE_SUPPDAYS
 
 with open(SINKHOLE_SUPPFILE, 'wb') as f:
-    pickle.dump(hits, f)
+    pickle.dump(suppress, f)
